@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const contactsService = require("../../services/contactsService"); // presupunem că există acest modul
+const contactsService = require("../../services/contactsService");
 
 router.get("/", async (req, res, next) => {
   try {
@@ -26,14 +26,8 @@ router.get("/:contactId", async (req, res, next) => {
 
 router.post("/", async (req, res, next) => {
   try {
-    const { name, email, phone } = req.body;
-    if (!name || !email || !phone) {
-      return res
-        .status(400)
-        .json({ message: "missing required name, email or phone field" });
-    }
-    const newContact = await contactsService.addContact({ name, email, phone });
-    res.status(201).json(newContact);
+    const contact = await contactsService.addContact(req.body);
+    res.status(201).json(contact);
   } catch (error) {
     next(error);
   }
@@ -41,10 +35,9 @@ router.post("/", async (req, res, next) => {
 
 router.delete("/:contactId", async (req, res, next) => {
   try {
-    const { contactId } = req.params;
-    const result = await contactsService.removeContact(contactId);
+    const result = await contactsService.removeContact(req.params.contactId);
     if (result) {
-      res.json({ message: "contact deleted" });
+      res.status(200).json({ message: "Contact deleted" });
     } else {
       res.status(404).json({ message: "Not found" });
     }
@@ -55,19 +48,40 @@ router.delete("/:contactId", async (req, res, next) => {
 
 router.put("/:contactId", async (req, res, next) => {
   try {
-    const { contactId } = req.params;
-    const contact = req.body;
-    const updatedContact = await contactsService.updateContact(
-      contactId,
-      contact
+    const contact = await contactsService.updateContact(
+      req.params.contactId,
+      req.body
     );
-    if (updatedContact) {
-      res.json(updatedContact);
+    if (contact) {
+      res.json(contact);
     } else {
       res.status(404).json({ message: "Not found" });
     }
   } catch (error) {
     next(error);
+  }
+});
+
+router.patch("/:contactId/favorite", async (req, res, next) => {
+  try {
+    const { contactId } = req.params;
+    const { favorite } = req.body;
+    if (favorite === undefined) {
+      return res.status(400).json({ message: "missing field favorite" });
+    }
+    const updatedContact = await contactsService.updateStatusContact(
+      contactId,
+      { favorite }
+    );
+    res.json(updatedContact);
+  } catch (error) {
+    if (error.message === "Not found") {
+      res.status(404).json({ message: error.message });
+    } else if (error.message === "Missing field favorite") {
+      res.status(400).json({ message: error.message });
+    } else {
+      next(error);
+    }
   }
 });
 

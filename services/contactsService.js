@@ -1,51 +1,97 @@
-const fs = require("fs/promises");
-const path = require("path");
-const contactsPath = path.join(__dirname, "..", "db", "contacts.json");
+const Contact = require("../models/contact");
 
 async function listContacts() {
-  const data = await fs.readFile(contactsPath, "utf8");
-  return JSON.parse(data);
+  console.log("Fetching all contacts...");
+  try {
+    const contacts = await Contact.find();
+    console.log("Contacts found:", contacts.length);
+    return contacts;
+  } catch (error) {
+    console.error("Error fetching contacts:", error);
+    throw error;
+  }
 }
 
 async function getContactById(contactId) {
-  const contacts = await listContacts();
-  return contacts.find((contact) => contact.id === contactId);
+  console.log(`Fetching contact by ID: ${contactId}`);
+  try {
+    const contact = await Contact.findById(contactId);
+    if (!contact) {
+      console.log("Contact not found");
+    }
+    return contact;
+  } catch (error) {
+    console.error(`Error fetching contact by ID: ${contactId}`, error);
+    throw error;
+  }
 }
 
-async function addContact(contact) {
-  const contacts = await listContacts();
-  const newId =
-    contacts.length > 0 ? Math.max(...contacts.map((c) => c.id)) + 1 : 1; // Generate new ID
-  const newContact = { id: newId, ...contact };
-  contacts.push(newContact);
-  await fs.writeFile(contactsPath, JSON.stringify(contacts, null, 2));
-  return newContact;
+async function addContact({ name, email, phone }) {
+  console.log("Adding new contact:", { name, email, phone });
+  try {
+    const newContact = await Contact.create({ name, email, phone });
+    console.log("Contact added:", newContact);
+    return newContact;
+  } catch (error) {
+    console.error("Error adding new contact:", error);
+    throw error;
+  }
 }
 
 async function removeContact(contactId) {
-  const contacts = await listContacts();
-  const filteredContacts = contacts.filter(
-    (contact) => contact.id !== contactId
-  );
-  if (contacts.length === filteredContacts.length) {
-    return false; 
+  console.log(`Removing contact by ID: ${contactId}`);
+  try {
+    const result = await Contact.findByIdAndDelete(contactId);
+    if (result) {
+      console.log("Contact deleted successfully");
+    } else {
+      console.log("Contact not found for deletion");
+    }
+    return result;
+  } catch (error) {
+    console.error(`Error removing contact by ID: ${contactId}`, error);
+    throw error;
   }
-  await fs.writeFile(contactsPath, JSON.stringify(filteredContacts, null, 2));
-  return true; 
 }
 
 async function updateContact(contactId, updates) {
-  const contacts = await listContacts();
-  const contactIndex = contacts.findIndex(
-    (contact) => contact.id === contactId
-  );
-  if (contactIndex === -1) {
-    return null; 
+  console.log(`Updating contact by ID: ${contactId}`, updates);
+  try {
+    const updatedContact = await Contact.findByIdAndUpdate(contactId, updates, {
+      new: true,
+    });
+    if (!updatedContact) {
+      console.log("Contact not found for update");
+    }
+    return updatedContact;
+  } catch (error) {
+    console.error(`Error updating contact by ID: ${contactId}`, error);
+    throw error;
   }
-  const updatedContact = { ...contacts[contactIndex], ...updates };
-  contacts[contactIndex] = updatedContact;
-  await fs.writeFile(contactsPath, JSON.stringify(contacts, null, 2));
-  return updatedContact;
+}
+
+async function updateStatusContact(contactId, body) {
+  console.log(`Updating favorite status for contact ID: ${contactId}`, body);
+  if (!body.favorite && body.favorite !== false) {
+    console.log("Missing 'favorite' field in request");
+    throw new Error("Missing field favorite");
+  }
+  try {
+    const updatedContact = await Contact.findByIdAndUpdate(
+      contactId,
+      { favorite: body.favorite },
+      { new: true }
+    );
+    if (!updatedContact) {
+      console.log("Contact not found for updating favorite status");
+      throw new Error("Not found");
+    }
+    console.log("Favorite status updated:", updatedContact);
+    return updatedContact;
+  } catch (error) {
+    console.error("Error updating favorite status:", error);
+    throw error;
+  }
 }
 
 module.exports = {
@@ -54,4 +100,5 @@ module.exports = {
   addContact,
   removeContact,
   updateContact,
+  updateStatusContact,
 };
