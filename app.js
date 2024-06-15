@@ -1,24 +1,26 @@
 require("dotenv").config();
-
 const express = require("express");
 const logger = require("morgan");
 const cors = require("cors");
+const rateLimit = require("express-rate-limit");
+const contactsRouter = require("./routes/api/contacts");
+const authRouter = require("./routes/api/auth.js");
 const mongoose = require("mongoose");
 
-const contactsRouter = require("./routes/api/contacts");
 const connectDB = require("./db/connectDB");
 
 const app = express();
+const formatsLogger = app.get("env") === "development" ? "dev" : "short";
 
 connectDB();
-
-const formatsLogger = app.get("env") === "development" ? "dev" : "short";
 
 app.use(logger(formatsLogger));
 app.use(cors());
 app.use(express.json());
+app.use(express.static("public"));
 
-app.use("/api/contacts", contactsRouter);
+app.use("/api/products", contactsRouter);
+app.use("/api/auth", authRouter);
 
 app.use((req, res) => {
   res.status(404).json({ message: "Not found" });
