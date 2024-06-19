@@ -4,13 +4,19 @@ const User = require("../models/user.js");
 const bcrypt = require("bcrypt");
 const passport = require("passport");
 const gravatar = require("gravatar");
+const { v4: uuidv4 } = require("uuid");
 
 const secretForToken = process.env.TOKEN_SECRET;
 
 async function login(data) {
   const { email, password } = data;
-  const user = await User.findOne({ email });
+  const user = await User.findOne({ email, verify });
 
+  if (!user) {
+    throw new Error(
+      "The username does not exist or the email was not yet validated."
+    );
+  }
   const isMatching = await bcrypt.compare(password, user.password);
 
   if (isMatching) {
@@ -35,9 +41,19 @@ async function signup(data) {
     role: "buyer",
     token: null,
     avatarURL: userAvatar,
+    verificationToken: token,
+    verify: false,
   });
 
+  sendWithSendGrid(data.email, token);
+
   return User.create(newUser);
+}
+
+async function updateToken(email, token) {
+  token = token || uuidv4();
+  await User.findOneAndUpdate({ email }, { verificationToken: token });
+  sendWithSendGrid(email, token);
 }
 
 function validateJWT(token) {
@@ -73,10 +89,22 @@ function validateAuth(req, res, next) {
   })(req, res, next);
 }
 
+async function getUserByValidationToken(token) {
+  const user = await User.findOne({ verificationToken: token, verify: false });
+
+  if (user) {
+    return true;
+  }
+
+  return false;
+}
+
 module.exports = {
   login,
   signup,
   validateJWT,
   getPayloadFromJWT,
   validateAuth,
+  getUserByValidationToken,
+  updateToken,
 };
